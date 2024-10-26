@@ -10,7 +10,7 @@ const LocalPage: React.FC = () => {
   const loadUserAds = async () => {
     setLoading(true);
     try {
-      const newUserAds = await getUserAds(page);
+      const newUserAds = await getUserAds(page.toString());
       setUserAds(newUserAds);
     } catch (error) {
       console.error("Error loading user ads:", error);
