@@ -47,7 +47,7 @@ const CurrencyLocator: React.FC = () => {
 
   return (
     <div>
-      <p>Country: {country}</p>
+      <p>Country:  {country}</p>
       <p>Currency Code: {currencyCode}</p>
     </div>
   );
