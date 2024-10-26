@@ -13,7 +13,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchAds = async () => {
-      if (!user) {
+      if (!user || !user.uid) {
         setError('You must be logged in to view this page');
         setLoading(false);
         return;
@@ -24,7 +24,7 @@ const Dashboard = () => {
 
       while (retries < maxRetries) {
         try {
-          const [userAdsData, savedAdsData] = await Promise.all([getUserAds(), getSavedAds()]);
+          const [userAdsData, savedAdsData] = await Promise.all([getUserAds(user.uid), getSavedAds()]);
           setUserAds(userAdsData);
           setSavedAds(savedAdsData);
           setLoading(false);
