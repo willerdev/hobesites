@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   reactStrictMode: true,
   webpack: (config, { isServer }) => {
     if (!isServer) {
@@ -22,4 +22,3 @@ module.exports = {
     return config;
   },
 };
-
