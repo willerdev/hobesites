@@ -1,12 +1,12 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Map, Compass, MessageCircle, User } from 'lucide-react';
+import { Home, Map, Plus, MessageCircle, User } from 'lucide-react';
 
 const MobileFooter = () => {
   const location = useLocation();
 
   const isActive = (path: string) => {
-    return location.pathname === path ? 'text-orange-500' : 'text-gray-500';
+    return location.pathname === path ? 'text-sky-500' : 'text-gray-500';
   };
 
   return (
@@ -18,11 +18,11 @@ const MobileFooter = () => {
         </Link>
         <Link to="/locals" className={`flex flex-col items-center ${isActive('/locals')}`}>
           <Map size={24} />
-          <span className="text-xs">My Local</span>
+          <span className="text-xs">All ads</span>
         </Link>
-        <Link to="/explore" className={`flex flex-col items-center ${isActive('/explore')}`}>
-          <Compass size={24} />
-          <span className="text-xs">Explore</span>
+        <Link to="/post-ad" className={`flex flex-col items-center ${isActive('/post-ad')}`}>
+          <Plus size={24} />
+        
         </Link>
         <Link to="/chat" className={`flex flex-col items-center ${isActive('/chat')}`}>
           <MessageCircle size={24} />
@@ -30,7 +30,7 @@ const MobileFooter = () => {
         </Link>
         <Link to="/profile" className={`flex flex-col items-center ${isActive('/profile')}`}>
           <User size={24} />
-          <span className="text-xs">My Karrot</span>
+          <span className="text-xs">Profile</span>
         </Link>
       </div>
     </footer>

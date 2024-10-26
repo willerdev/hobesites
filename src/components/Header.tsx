@@ -37,7 +37,7 @@ const Header = () => {
   const IconButton = ({ icon: Icon, onClick, badge }: { icon: React.ElementType; onClick: () => void; badge?: number }) => (
     <button
       onClick={onClick}
-      className="bg-white rounded-full p-2 text-orange-500 hover:bg-orange-100 transition-colors relative"
+      className="bg-white rounded-full p-2 text-sky-500 hover:bg-sky-100 transition-colors relative"
     >
       <Icon size={20} />
       {badge !== undefined && badge > 0 && (
@@ -49,34 +49,32 @@ const Header = () => {
   );
 
   return (
-    <header className="bg-orange-500 text-white py-2 px-4 shadow-lg sticky top-0 z-50">
+    <header className="bg-sky-500 text-white py-2 px-4 shadow-lg sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center">
         <Link to="/" className="flex items-center space-x-2">
-          <div className="bg-white rounded-full p-1">
-            <Carrot size={24} className="text-orange-500" />
-          </div>
-          <span className="text-xl font-bold hidden md:inline">Karrots</span>
+        
+          <span className="text-xl font-bold  md:inline">HobeShop</span>
         </Link>
         <nav className="flex items-center space-x-2 md:space-x-3">
           <IconButton icon={Bell} onClick={() => handleAuthAction('/notifications')} badge={unreadNotifications} />
           <IconButton icon={MessageSquare} onClick={() => handleAuthAction('/chat')} />
-           <IconButton icon={Wallet} onClick={() => handleAuthAction('/wallet')} /> 
+       
           
           {user ? (
-            <Link to="/profile" className="bg-white rounded-full p-1.5 text-orange-500 hover:bg-orange-100 transition-colors">
+            <Link to="/profile" className="bg-white rounded-full p-1.5 text-sky-500 hover:bg-sky-100 transition-colors">
               <User size={18} />
             </Link>
           ) : (
-            <Link to="/login" className="bg-white rounded-full p-1.5 text-orange-500 hover:bg-orange-100 transition-colors">
+            <Link to="/login" className="bg-white rounded-full p-1.5 text-sky-500 hover:bg-sky-100 transition-colors">
               <User size={18} />
             </Link>
           )}
           <button
             onClick={() => handleAuthAction('/post-ad')}
-            className="bg-white text-orange-500 p-1.5 rounded-full hover:bg-orange-100 transition-colors md:px-3 md:py-1.5 md:rounded-md md:text-sm md:font-semibold"
+            className="bg-white text-sky-500 p-1.5 rounded-full hover:bg-sky-100 transition-colors md:px-3 md:py-1.5 md:rounded-md md:text-sm md:font-semibold"
           >
             <Plus size={18} className="md:hidden" />
-            <span className="hidden md:inline">SELL</span>
+            <span className="hidden md:inline">Post Now</span>
           </button>
         </nav>
       </div>

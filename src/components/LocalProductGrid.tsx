@@ -53,7 +53,7 @@ const LocalProductGrid: React.FC<LocalProductGridProps> = ({ ads }) => {
             >
               <Heart 
                 size={20} 
-                className={user && ad.savedBy?.includes(user.uid) ? 'text-orange-500' : 'text-gray-500'} 
+                className={user && ad.savedBy?.includes(user.uid) ? 'text-sky-500' : 'text-gray-500'} 
                 fill={user && ad.savedBy?.includes(user.uid) ? 'currentColor' : 'none'}
               />
             </button>
@@ -61,7 +61,7 @@ const LocalProductGrid: React.FC<LocalProductGridProps> = ({ ads }) => {
           <div className="p-4 flex-grow flex flex-col justify-between">
             <div>
               <h3 className="font-semibold text-sm mb-1 truncate">{ad.title}</h3>
-              <p className="text-orange-500 font-bold"> {ad.price.toLocaleString()} Frw</p>
+              <p className="text-sky-500 font-bold"> {ad.price.toLocaleString()} Frw</p>
             </div>
             <div className="mt-2">
               <p className="text-gray-500 text-xs flex items-center">
