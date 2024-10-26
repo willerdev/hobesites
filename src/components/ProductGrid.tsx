@@ -1,156 +1,64 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Heart, MapPin, Tag, User } from 'lucide-react';
-import { Ad } from '../types/Ad';
-import { useAuth } from '../contexts/AuthContext';
-import { saveAd, unsaveAd } from '../services/adService';
-import { getUserById } from '../services/userService'; // Assume this function exists
-import toast from 'react-hot-toast'; // Add this import
+import ProductCard from './ProductCard';
 
-interface ProductGridProps {
-  ads: Ad[];
-}
+const products = [
+  {
+    id: 1,
+    title: "iPhone 13 Pro Max - 256GB Space Gray",
+    price: "$899",
+    image: "https://images.unsplash.com/photo-1632661674596-df8be070a5c5?auto=format&fit=crop&q=80&w=400",
+    location: "New York",
+    date: "Today"
+  },
+  {
+    id: 2,
+    title: "Modern 3-Seater Sofa - Gray",
+    price: "$599",
+    image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=400",
+    location: "Los Angeles",
+    date: "Yesterday"
+  },
+  {
+    id: 3,
+    title: "2019 Tesla Model 3 - Long Range",
+    price: "$35,900",
+    image: "https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=400",
+    location: "Miami",
+    date: "2 days ago"
+  },
+  {
+    id: 4,
+    title: "MacBook Pro 16\" M1 Max",
+    price: "$2,499",
+    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=400",
+    location: "Chicago",
+    date: "3 days ago"
+  },
+  {
+    id: 5,
+    title: "Luxury Apartment - 2 Bed, 2 Bath",
+    price: "$2,800/mo",
+    image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&q=80&w=400",
+    location: "San Francisco",
+    date: "1 week ago"
+  },
+  {
+    id: 6,
+    title: "Professional DSLR Camera Kit",
+    price: "$1,299",
+    image: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400",
+    location: "Boston",
+    date: "1 week ago"
+  }
+];
 
-const CACHE_KEY = 'productGridCache';
-const CACHE_EXPIRY = 30 * 60 * 1000; // 30 minutes in milliseconds
-
-const ProductGrid: React.FC<ProductGridProps> = ({ ads }) => {
-  const { user } = useAuth();
-  const [sellersData, setSellersData] = useState<{[key: string]: string}>({});
-  const [savedAds, setSavedAds] = useState<string[]>([]);
-
-  useEffect(() => {
-    const fetchAndCacheData = async () => {
-      const cachedData = localStorage.getItem(CACHE_KEY);
-      const now = new Date().getTime();
-
-      if (cachedData) {
-        const { timestamp, data } = JSON.parse(cachedData);
-        if (now - timestamp < CACHE_EXPIRY) {
-          setSellersData(data.sellersData);
-          return;
-        }
-      }
-
-      const sellersInfo: {[key: string]: string} = {};
-      for (const ad of ads) {
-        if (!sellersInfo[ad.userId]) {
-          try {
-            const sellerData = await getUserById(ad.userId);
-            sellersInfo[ad.userId] = sellerData?.name ?? 'Unknown Seller';
-          } catch (error) {
-            console.error('Error fetching seller data:', error);
-            sellersInfo[ad.userId] = 'Unknown Seller';
-          }
-        }
-      }
-
-      setSellersData(sellersInfo);
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        timestamp: now,
-        data: { sellersData: sellersInfo }
-      }));
-    };
-
-    fetchAndCacheData();
-
-    // Initialize savedAds
-    if (user) {
-      setSavedAds(ads.filter(ad => ad.savedBy?.includes(user.uid)).map(ad => ad.id));
-    }
-  }, [ads, user]);
-
-  const handleSaveAd = async (e: React.MouseEvent, ad: Ad) => {
-    e.preventDefault();
-    if (!user) {
-      toast.error('Please log in to save ads');
-      // Optionally redirect to login page here
-      return;
-    }
-
-    try {
-      if (savedAds.includes(ad.id)) {
-        await unsaveAd(ad.id);
-        setSavedAds(prev => prev.filter(id => id !== ad.id));
-        toast.success('Ad removed from favorites');
-      } else {
-        await saveAd(ad.id);
-        setSavedAds(prev => [...prev, ad.id]);
-        toast.success('Ad added to favorites');
-      }
-    } catch (error) {
-      console.error('Error saving/unsaving ad:', error);
-      toast.error('An error occurred. Please try again.');
-    }
-  };
-
-  const preloadImage = (src: string) => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = src;
-    });
-  };
-
-  useEffect(() => {
-    ads.forEach(ad => {
-      if (ad.images && ad.images.length > 0) {
-        preloadImage(ad.images[0]).catch(error => console.error('Error preloading image:', error));
-      }
-    });
-  }, [ads]);
-
- 
-
+export default function ProductGrid() {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-      {ads.map((ad) => (
-        <Link to={`/product/${ad.id}`} key={ad.id} className="bg-white rounded-lg shadow-md overflow-hidden flex flex-col">
-          <div className="relative">
-            <img src={ad.images[0]} alt={ad.title} className="w-full h-40 object-cover" />
-            <button 
-              className="absolute top-2 right-2 bg-white rounded-full p-1"
-              onClick={(e) => handleSaveAd(e, ad)}
-            >
-              <Heart 
-                size={20} 
-                className={user && ad.savedBy?.includes(user.uid) ? 'text-orange-500' : 'text-gray-500'} 
-                fill={user && ad.savedBy?.includes(user.uid) ? 'currentColor' : 'none'}
-              />
-            </button>
-            {ad.status === 'active' && ad.isVip && (
-              <span className="absolute top-2 left-2 bg-yellow-400 text-xs font-bold px-2 py-1 rounded">
-                Verified
-              </span>
-            )}
-            {ad.status === 'underDeal' && (
-              <span className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">
-                May be bought
-              </span>
-            )}
-          </div>
-          <div className="p-2 flex-grow flex flex-col justify-between">
-            <div>
-              <h3 className="font-semibold text-xs mb-1 truncate">{ad.title}</h3>
-              <p className="text-orange-500 font-bold text-sm">{ad.price.toLocaleString()} Frw </p>
-            </div>
-            <div>
-              <p className="bg-gray-100 text-gray-700 text-xs p-1 rounded-md mb-1 flex items-center">
-                <MapPin size={12} className="mr-1" /> 
-                <span className="font-semibold mr-2">{ad.location}</span>
-                
-                <Tag size={12} className="mr-1" /> <span className="text-gray-600">{ad.condition}</span>
-              </p>
-              <p className="text-orange-500 text-xs truncate flex items-center">
-                <User size={16} className="mr-1" /> {sellersData[ad.userId] || 'Loading...'}
-              </p>
-            </div>
-          </div>
-        </Link>
-      ))}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {products.map((product) => (
+          <ProductCard key={product.id} {...product} />
+        ))}
+      </div>
     </div>
   );
-};
-
-export default ProductGrid;
+}

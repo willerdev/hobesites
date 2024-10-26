@@ -1,46 +1,35 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import { Home, MessageSquare, PlusSquare, LayoutGrid, Settings } from 'lucide-react';
+import { useLocation, Link } from 'react-router-dom';
 
-const Footer = () => {
+export default function Footer() {
+  const location = useLocation();
+  
+  const navItems = [
+    { icon: Home, label: 'Home', path: '/' },
+    { icon: LayoutGrid, label: 'Categories', path: '/categories' },
+    { icon: PlusSquare, label: 'Post', path: '/post' },
+    { icon: MessageSquare, label: 'Chat', path: '/chat' },
+    { icon: Settings, label: 'Settings', path: '/settings' }
+  ];
+
   return (
-    <footer className="bg-orange-500 text-white py-8 hidden md:block">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-4 gap-8">
-          <div>
-            <h3 className="text-lg font-semibold mb-4">About Karrots</h3>
-            <ul className="space-y-2">
-              <li><Link to="/about">About Us</Link></li>
-              <li><Link to="/careers">Careers</Link></li>
-              <li><Link to="/press">Press</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Support</h3>
-            <ul className="space-y-2">
-              <li><Link to="/help">Help Center</Link></li>
-              <li><Link to="/safety">Safety Center</Link></li>
-              <li><Link to="/community">Community Guidelines</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Legal</h3>
-            <ul className="space-y-2">
-              <li><Link to="/cookies">Cookies Policy</Link></li>
-              <li><Link to="/privacy">Privacy Policy</Link></li>
-              <li><Link to="/terms">Terms of Service</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Install App</h3>
-            <p>Coming soon to iOS and Android</p>
-          </div>
-        </div>
-        <div className="mt-8 text-center">
-          <p>&copy; 2024 Karrots. All rights reserved.</p>
+    <div className="fixed bottom-0 w-full bg-white border-t border-gray-200 px-4 py-2">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center">
+          {navItems.map(({ icon: Icon, label, path }) => (
+            <Link
+              key={label}
+              to={path}
+              className={`flex flex-col items-center p-2 ${
+                location.pathname === path ? 'text-emerald-600' : 'text-gray-600'
+              }`}
+            >
+              <Icon className="h-6 w-6" />
+              <span className="text-xs mt-1">{label}</span>
+            </Link>
+          ))}
         </div>
       </div>
-    </footer>
+    </div>
   );
-};
-
-export default Footer;
+}
