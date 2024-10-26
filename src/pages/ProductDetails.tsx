@@ -2,7 +2,7 @@ import React, { useState, useEffect, Fragment } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MessageCircle, Flag, MapPin, Star, CheckCircle, CreditCard, Heart, Mail, Loader, Smartphone, Battery, Cpu, Award, Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { doc, getDoc, collection, getDocs, addDoc, updateDoc, arrayUnion, arrayRemove, setDoc, serverTimestamp, query, where, increment } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, addDoc, updateDoc, arrayUnion, arrayRemove, setDoc, serverTimestamp, query, where, increment, Timestamp, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Ad } from '../types/Ad';
 import { User } from '../types/User';
@@ -10,6 +10,16 @@ import { Dialog, Transition } from '@headlessui/react';
 import LoadingScreen from '../components/LoadingScreen';
 import { motion } from 'framer-motion';
 import { Toaster, toast } from 'react-hot-toast';
+import { useWallet } from '../contexts/WalletContext'; // Adjust the import path as needed
+import { WalletProvider } from '../contexts/WalletContext'; // Import the WalletProvider
+import DeliveryModal from '../components/DeliveryModal';
+const ProductDetailsWrapper: React.FC = () => {
+  return (
+    <WalletProvider>
+      <ProductDetails />
+    </WalletProvider>
+  );
+};
 
 const ProductDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -37,7 +47,11 @@ const ProductDetails: React.FC = () => {
   const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
   const [paymentOptions, setPaymentOptions] = useState<string[]>([]);
   const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
-
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [notificationMethod, setNotificationMethod] = useState<'email' | 'sms' | 'system'>('system');
+  const { walletBalance, updateWalletBalance, walletId } = useWallet(); // Add walletId here
+  const [insufficientFunds, setInsufficientFunds] = useState(false);
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false);
   // Add this animation variant
   const fadeIn = {
     hidden: { opacity: 0 },
@@ -51,6 +65,9 @@ const ProductDetails: React.FC = () => {
         setLoading(false);
         return;
       }
+
+      // Create an abort controller
+      const abortController = new AbortController();
 
       try {
         const productRef = doc(db, 'ads', id);
@@ -86,11 +103,20 @@ const ProductDetails: React.FC = () => {
           setError('Product not found');
         }
       } catch (err: any) {
-        console.error('Error fetching product:', err);
-        setError('Failed to load product details. Please try again.');
+        if (!abortController.signal.aborted) {
+          console.error('Error fetching product:', err);
+          setError('Failed to load product details. Please try again.');
+        }
       } finally {
-        setLoading(false);
+        if (!abortController.signal.aborted) {
+          setLoading(false);
+        }
       }
+
+      // Return a cleanup function
+      return () => {
+        abortController.abort();
+      };
     };
 
     fetchProduct();
@@ -255,86 +281,144 @@ const ProductDetails: React.FC = () => {
   const handleBuyNow = async () => {
     if (!user || !product) return;
 
-    setIsPaymentModalOpen(true);
-    setPaymentMessage('Initializing payment...');
-
     try {
-      const walletRef = doc(db, 'wallets', user.uid); // Updated table name
-      const walletSnap = await getDoc(walletRef);
+      const adRef = doc(db, 'ads', product.id);
+      const userWalletRef = doc(db, 'wallets', user.uid);
+      const sellerWalletRef = doc(db, 'wallets', product.userId);
 
-      if (walletSnap.exists()) {
-        const walletData = walletSnap.data();
-        const walletBalance = walletData.balance;
+      await runTransaction(db, async (transaction) => {
+        let userWalletDoc = await transaction.get(userWalletRef);
+        let sellerWalletDoc = await transaction.get(sellerWalletRef);
 
-        if (walletBalance >= product.price) {
-          setPaymentOptions(['Pay with Cash', 'Use Wallet']);
-        } else {
-          setPaymentOptions(['Pay with Cash']);
-          setPaymentMessage('Wallet amount insufficient');
+        // Create buyer's wallet if it doesn't exist
+        if (!userWalletDoc.exists()) {
+          transaction.set(userWalletRef, { balance: 0 });
+          userWalletDoc = await transaction.get(userWalletRef);
         }
-      } else {
-        setPaymentOptions(['Pay with Cash']);
-        setPaymentMessage('Wallet not found');
+
+        // Create seller's wallet if it doesn't exist
+        if (!sellerWalletDoc.exists()) {
+          transaction.set(sellerWalletRef, { balance: 0, releaseable: 0 });
+          sellerWalletDoc = await transaction.get(sellerWalletRef);
+        }
+
+        const userWalletData = userWalletDoc.data();
+        const sellerWalletData = sellerWalletDoc.data();
+        const currentBalance = userWalletData?.balance ?? 0;
+        const sellerReleaseable = sellerWalletData?.releaseable ?? 0;
+
+        if (currentBalance < product.price) {
+          throw new Error("Insufficient funds");
+        }
+
+        // Update buyer's wallet
+        transaction.update(userWalletRef, {
+          balance: currentBalance - product.price
+        });
+
+        // Update ad status
+        transaction.update(adRef, {
+          status: 'sold',
+        });
+
+        // Update seller's wallet
+        transaction.update(sellerWalletRef, {
+          releaseable: sellerReleaseable + product.price,
+        });
+
+        // Create a new purchase record
+        const purchaseRef = collection(db, 'purchases');
+        const newPurchaseRef = doc(purchaseRef);
+        const newPurchase = {
+          productId: product.id,
+          productTitle: product.title,
+          buyerId: user.uid,
+          sellerId: product.userId,
+          price: product.price,
+          paymentMethod: 'wallet',
+          status: 'pending',
+          purchaseDate: serverTimestamp(),
+          lastUpdated: serverTimestamp(),
+        };
+        transaction.set(newPurchaseRef, newPurchase);
+      });
+
+      // Update local wallet balance
+      const newBalance = walletBalance - product.price;
+      updateWalletBalance(newBalance);
+      console.log('Updated wallet balance:', newBalance);
+
+      // Add notifications for seller and buyer
+      await addDoc(collection(db, 'notifications'), {
+        userId: product.userId,
+        dateCreated: serverTimestamp(),
+        details: "Product sold",
+        status: true,
+        title: `Your product ${product.title} has been sold for ${product.price} Frw`,
+      });
+
+      await addDoc(collection(db, 'notifications'), {
+        userId: user.uid,
+        dateCreated: serverTimestamp(),
+        details: "Purchase successful",
+        status: true,
+        title: `You have successfully purchased ${product.title} for ${product.price} Frw`,
+      });
+
+      toast.success('Purchase successful!', {
+        icon: '✅',
+        duration: 3000,
+      });
+
+      // Refresh product data
+      const updatedProductSnap = await getDoc(adRef);
+      if (updatedProductSnap.exists()) {
+        setProduct({ id: updatedProductSnap.id, ...updatedProductSnap.data() } as Ad);
       }
     } catch (error) {
-      console.error('Error checking wallet:', error);
-      setPaymentMessage('Failed to initialize payment. Please try again.');
+      console.error('Error processing purchase:', error);
+      toast.error('Failed to complete purchase. Please try again.', {
+        icon: '❌',
+        duration: 3000,
+      });
     }
   };
 
-  const handlePaymentOption = async (option: string) => {
+  const handleNotifyMe = async () => {
     if (!user || !product) return;
 
-    setIsPaymentProcessing(true);
-
     try {
-      if (option === 'Pay on Delivery') {
-        await addDoc(collection(db, 'paymentsList'), {
-          userId: user.uid,
-          adId: product.id,
-          amount: product.price,
-          method: 'Cash on Delivery',
-          createdAt: serverTimestamp(),
-        });
-        setPaymentMessage('Payment will be processed on delivery');
-      } else if (option === 'Use Wallet') {
-        const walletRef = doc(db, 'wallets', user.uid);
-        const walletSnap = await getDoc(walletRef);
-        if (walletSnap.exists()) {
-          const walletData = walletSnap.data();
-          const walletBalance = walletData.balance;
+      const settingsRef = doc(db, 'settings', user.uid);
+      await setDoc(settingsRef, {
+        notificationMethod: notificationMethod,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
 
-          if (walletBalance >= product.price) {
-            await updateDoc(walletRef, {
-              balance: increment(-product.price),
-            });
-            await addDoc(collection(db, 'paymentsList'), {
-              userId: user.uid,
-              adId: product.id,
-              amount: product.price,
-              method: 'Wallet',
-              createdAt: serverTimestamp(),
-            });
-            setPaymentMessage('Payment successful with wallet');
-          } else {
-            setPaymentMessage('Insufficient wallet balance');
-          }
-        } else {
-          setPaymentMessage('Wallet not found');
-        }
-      }
+      toast.success('Notification preference saved successfully', {
+        icon: '✅',
+        duration: 3000,
+      });
     } catch (error) {
-      console.error('Error processing payment:', error);
-      setPaymentMessage('Failed to process payment. Please try again.');
+      console.error('Error saving notification preference:', error);
+      toast.error('Failed to save notification preference', {
+        icon: '❌',
+        duration: 3000,
+      });
     } finally {
-      setIsPaymentProcessing(false);
-      setTimeout(() => setIsPaymentModalOpen(false), 5000); // Dismiss modal after 5 seconds
+      setIsNotificationModalOpen(false);
     }
   };
 
   // Add this function to check if the product is sold
   const isProductSold = () => {
     return product?.status === "sold";
+  };
+
+  // Add this function near your other handler functions
+  const handlePaymentOption = (option: string) => {
+    // Implement the logic for handling the payment option here
+    console.log(`Selected payment option: ${option}`);
+    // You might want to update state or perform other actions based on the selected option
   };
 
   if (loading) return <LoadingScreen />;
@@ -399,10 +483,13 @@ const ProductDetails: React.FC = () => {
               <p className="text-gray-700">{product.description}</p>
             </div>
             <div className="flex space-x-2 mb-4">
-              {isProductSold() ? (
-                <div className="bg-red-500 text-white px-4 py-2 rounded-lg flex items-center justify-center flex-grow">
-                  Product Sold
-                </div>
+              {product.status === 'underDeal' ? (
+                <button
+                  onClick={() => setIsNotificationModalOpen(true)}
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors flex-grow"
+                >
+                  Notify me if not bought
+                </button>
               ) : product.negotiable ? (
                 <button
                   onClick={handleStartChat}
@@ -417,13 +504,17 @@ const ProductDetails: React.FC = () => {
                   {isOfferLoading ? 'Processing...' : 'Make Offer'}
                 </button>
               ) : (
-                <button
+                <motion.button
                   onClick={handleBuyNow}
-                  className="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center justify-center hover:bg-green-600 transition-colors flex-grow"
+                  disabled={insufficientFunds || isProductSold()}
+                  className="bg-green-500 text-white px-4 py-2 rounded-lg flex items-center justify-center hover:bg-green-600 transition-colors flex-grow disabled:opacity-50 disabled:cursor-not-allowed"
+                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
                 >
                   <CreditCard size={20} className="mr-2" />
-                  Buy Now
-                </button>
+                  {isProductSold() ? 'Sold Out' : 'Buy Now'}
+                </motion.button>
               )}
               <button
                 onClick={handleSaveAd}
@@ -440,6 +531,14 @@ const ProductDetails: React.FC = () => {
                 <Flag size={20} />
               </button>
             </div>
+            {insufficientFunds && (
+              <div className="text-red-500 text-sm mt-2">
+                <p>Insufficient funds in your wallet. Please add money to your wallet before making a purchase.</p>
+                <p>Current Balance: {walletBalance.toLocaleString()} Frw</p>
+                {/* <p>Wallet ID: {walletId}</p>
+                <p>User ID: {user?.uid}</p> */}
+              </div>
+            )}
             {seller && (
               <div className="bg-gray-100 p-4 rounded-lg">
                 <h2 className="text-lg font-semibold mb-2">Seller Information</h2>
@@ -636,21 +735,84 @@ const ProductDetails: React.FC = () => {
                       Payment Details
                     </Dialog.Title>
                     <div className="mt-4">
-                      {paymentMessage && <p>{paymentMessage}</p>}
+                      {paymentMessage && <p className='text-center text-orange-500 font-bold text-xl mb-4'>{paymentMessage}</p>}
                       {paymentOptions.map((option) => (
                         <button
                           key={option}
                           onClick={() => handlePaymentOption(option)}
-                          className="inline-flex justify-center rounded-md border border-transparent bg-green-100 px-4 py-2 text-sm font-medium text-orange-900 hover:bg-orange-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
+                          className="w-full mb-2 inline-flex justify-center rounded-md border border-transparent bg-orange-500 px-4 py-2 text-sm font-medium text-white hover:bg-orange-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2"
                           disabled={isPaymentProcessing}
                         >
                           {isPaymentProcessing ? <Loader size={20} className="animate-spin mr-2" /> : null}
                           {option}
                         </button>
                       ))}
-                    
-                       
-                  
+                    </div>
+                  </Dialog.Panel>
+                </Transition.Child>
+              </div>
+            </div>
+          </Dialog>
+        </Transition>
+
+        {product.status === 'underClaim' && (
+          <button
+            onClick={() => setIsNotificationModalOpen(true)}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center justify-center hover:bg-blue-600 transition-colors"
+          >
+            Notify me if not bought
+          </button>
+        )}
+
+        {/* Notification Modal */}
+        <Transition appear show={isNotificationModalOpen} as={Fragment}>
+          <Dialog as="div" className="relative z-10" onClose={() => setIsNotificationModalOpen(false)}>
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-300"
+              enterFrom="opacity-0"
+              enterTo="opacity-100"
+              leave="ease-in duration-200"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
+              <div className="fixed inset-0 bg-black bg-opacity-25" />
+            </Transition.Child>
+
+            <div className="fixed inset-0 overflow-y-auto">
+              <div className="flex min-h-full items-center justify-center p-4 text-center">
+                <Transition.Child
+                  as={Fragment}
+                  enter="ease-out duration-300"
+                  enterFrom="opacity-0 scale-95"
+                  enterTo="opacity-100 scale-100"
+                  leave="ease-in duration-200"
+                  leaveFrom="opacity-100 scale-100"
+                  leaveTo="opacity-0 scale-95"
+                >
+                  <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                    <Dialog.Title
+                      as="h3"
+                      className="text-lg font-medium leading-6 text-gray-900 mb-4"
+                    >
+                      Choose Notification Method
+                    </Dialog.Title>
+                    <div className="mt-4">
+                      <select
+                        value={notificationMethod}
+                        onChange={(e) => setNotificationMethod(e.target.value as 'email' | 'sms' | 'system')}
+                        className="w-full p-2 border rounded mb-4"
+                      >
+                        <option value="email">Email</option>
+                        <option value="sms">SMS</option>
+                        <option value="system">System</option>
+                      </select>
+                      <button
+                        onClick={handleNotifyMe}
+                        className="w-full inline-flex justify-center rounded-md border border-transparent bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                      >
+                        Save Preference
+                      </button>
                     </div>
                   </Dialog.Panel>
                 </Transition.Child>
@@ -663,4 +825,4 @@ const ProductDetails: React.FC = () => {
   );
 };
 
-export default ProductDetails;
+export default ProductDetailsWrapper;

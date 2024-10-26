@@ -191,7 +191,7 @@ const ShopSettings = () => {
           className="w-full p-2 border rounded"
         />
         <div className="flex space-x-4">
-          <button type="submit" className="bg-sky-500 text-white px-4 py-2 rounded">
+          <button type="submit" className="bg-orange-500 text-white px-4 py-2 rounded">
             Save Shop Settings
           </button>
           {user && user.uid && (

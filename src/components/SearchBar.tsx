@@ -49,7 +49,7 @@ const SearchBar = () => {
   }, []);
 
   return (
-    <div className="bg-sky-500 text-white py-6">
+    <div className="bg-orange-500 text-white py-6">
       <Toaster />
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between mb-6">
@@ -93,7 +93,7 @@ const SearchBar = () => {
             {suggestions.map((suggestion, index) => (
               <span
                 key={index}
-                className="bg-sky-600 text-white text-base px-3 py-1.5 rounded-full m-1.5 cursor-pointer hover:bg-sky-700"
+                className="bg-orange-600 text-white text-base px-3 py-1.5 rounded-full m-1.5 cursor-pointer hover:bg-orange-700"
                 onClick={() => handleSearch(suggestion)}
               >
                 {suggestion}

@@ -317,7 +317,7 @@ const Wallet = () => {
       <Toaster /> {/* Add this line to render the toast notifications */}
       
       {/* Back button */}
-      <button className="absolute top-4 left-4 flex items-center text-sky-500">
+      <button className="absolute top-4 left-4 flex items-center text-orange-500">
         <FaArrowLeft className="mr-2" />
         Back
       </button>
@@ -326,26 +326,26 @@ const Wallet = () => {
         {/* Wallet header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-500">My Wallet</h1>
-          <FaWallet className="text-4xl text-sky-500" />
+          <FaWallet className="text-4xl text-orange-500" />
         </div>
 
         {/* Balance display */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <p className="text-lg text-gray-600 mb-2">Current Balance</p>
-          <p className="text-lg font-bold text-sky-500">{balance.toLocaleString()} FRW</p>
+          <p className="text-lg font-bold text-orange-500">{balance.toLocaleString()} FRW</p>
         </div>
 
         {/* Action buttons */}
         <div className="flex space-x-4 mb-8">
           <button
             onClick={() => setShowTopUpModal(true)}
-            className="flex-1 py-3 px-4 bg-white text-sky-500 border-2 border-sky-500 rounded-lg font-semibold"
+            className="flex-1 py-3 px-4 bg-white text-orange-500 border-2 border-orange-500 rounded-lg font-semibold"
           >
             Top Up
           </button>
           <button
             onClick={() => setShowWithdrawModal(true)}
-            className="flex-1 py-3 px-4 bg-sky-500 text-white rounded-lg font-semibold"
+            className="flex-1 py-3 px-4 bg-orange-500 text-white rounded-lg font-semibold"
           >
             Withdraw
           </button>
@@ -353,10 +353,10 @@ const Wallet = () => {
 
         {/* History links */}
         <div className="flex justify-between">
-          <a href="/deposit-history" className="text-sky-500 font-semibold">
+          <a href="/deposit-history" className="text-orange-500 font-semibold">
             Deposit History
           </a>
-          <a href="/withdraw-history" className="text-sky-500 font-semibold">
+          <a href="/withdraw-history" className="text-orange-500 font-semibold">
             Withdraw History
           </a>
         </div>
@@ -397,7 +397,7 @@ const Wallet = () => {
               {error && <p className="text-red-500 mb-4">{error}</p>}
               <button 
                 type="submit" 
-                className="w-full py-2 bg-sky-500 text-white rounded"
+                className="w-full py-2 bg-orange-500 text-white rounded"
                 disabled={loading}
               >
                 {loading ? 'Processing...' : 'Top Up'}
