@@ -1,54 +1,73 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Navbar from '../components/Navbar';
 import Categories from '../components/Categories';
+import SearchBar from '../components/SearchBar';
 import ProductGrid from '../components/ProductGrid';
-import ProductTable from '../components/ProductTable';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase'; // Ensure this import path is correct
+import HeroSlider from '../components/HeroSlider';
+import TipsSection from '../components/TipsSection';
+import { Shield, Users, Clock } from 'lucide-react';
 
 export default function HomePage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [products, setProducts] = useState<any[]>([]); // Add this line
+  const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
-    try {
-      setIsLoading(true);
-      const adsCollection = collection(db, 'ads');
-      const adsSnapshot = await getDocs(adsCollection);
-      const adsList = adsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setProducts(adsList);
-      setIsLoading(false);
-    } catch (err) {
-      setError('Failed to fetch products');
-      setIsLoading(false);
+  const features = [
+    {
+      icon: Shield,
+      title: "Secure Trading",
+      description: "Our platform ensures safe transactions between buyers and sellers"
+    },
+    {
+      icon: Users,
+      title: "Local Community",
+      description: "Connect with trusted buyers and sellers in your area"
+    },
+    {
+      icon: Clock,
+      title: "Quick & Easy",
+      description: "List items in minutes and start selling immediately"
     }
-  };
+  ];
 
   return (
     <div className="pb-20">
       <Navbar />
+      <HeroSlider />
+      
+      <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-10">
+        <SearchBar onSearch={setSearchQuery} />
+      </div>
+
       <Categories />
-      {isLoading ? (
-        <div className="text-center py-8">Loading...</div>
-      ) : error ? (
-        <div className="text-center py-8 text-red-600">{error}</div>
-      ) : (
-        <>
-          <ProductGrid />
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <h2 className="text-2xl font-semibold mb-4">Latest Products</h2>
-            <ProductTable />
+      <section className="py-12">
+        <div className="max-w-7xl mx-auto px-4">
+          <h2 className="text-2xl font-bold mb-8">Latest Products</h2>
+          <ProductGrid searchQuery={searchQuery} />
+        </div>
+      </section>
+      {/* Why Choose Us Section */}
+      <section className="bg-white py-16">
+        <div className="max-w-7xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">Why Choose Us</h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            {features.map((feature, index) => {
+              const Icon = feature.icon;
+              return (
+                <div key={index} className="text-center">
+                  <div className="inline-block p-4 bg-emerald-50 rounded-full mb-4">
+                    <Icon className="h-8 w-8 text-emerald-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                  <p className="text-gray-600">{feature.description}</p>
+                </div>
+              );
+            })}
           </div>
-        </>
-      )}
+        </div>
+      </section>
+
+      <TipsSection />
+      
+  
     </div>
   );
 }

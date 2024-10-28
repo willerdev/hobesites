@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { auth, addUser } from '../lib/firebase';
 import { Carrot } from 'lucide-react';
 
 export default function SignupPage() {
@@ -14,11 +14,22 @@ export default function SignupPage() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (!auth) throw new Error("Auth is not initialized");
       const { user } = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(user, { displayName: name });
+      
+      // Add user to Firestore
+      await addUser({
+        uid: user.uid,
+        name,
+        email,
+        createdAt: new Date(),
+      });
+
       navigate('/');
     } catch (err) {
       setError('Failed to create account');
+      console.error(err);
     }
   };
 

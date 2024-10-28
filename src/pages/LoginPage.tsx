@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { Carrot } from 'lucide-react';
-
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,8 +12,12 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate('/');
+      if (auth) {
+        await signInWithEmailAndPassword(auth, email, password);
+        navigate('/');
+      } else {
+        throw new Error('Auth instance is null');
+      }
     } catch (err) {
       setError('Invalid email or password');
     }
@@ -27,7 +30,7 @@ export default function LoginPage() {
           <div className="flex justify-center">
             <Carrot className="h-12 w-12 text-orange-600" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Welcome back to Karrots</h2>
+          <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">Welcome back to Hobe</h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Don't have an account?{' '}
             <Link to="/signup" className="text-orange-600 hover:text-orange-500">

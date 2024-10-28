@@ -1,35 +1,64 @@
-import { ChevronLeft, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ChevronLeft, Search, Send } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-const chats = [
-  {
-    id: 1,
-    name: "John Doe",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100",
-    lastMessage: "Is this still available?",
-    time: "2m ago",
-    unread: 2
-  },
-  {
-    id: 2,
-    name: "Jane Smith",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=100",
-    lastMessage: "Great, I'll take it!",
-    time: "1h ago",
-    unread: 0
-  },
-  {
-    id: 3,
-    name: "Mike Johnson",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100",
-    lastMessage: "Can you do $450?",
-    time: "3h ago",
-    unread: 1
-  }
-];
+import { auth, getChatsByUser, getMessages, sendMessage } from '../lib/firebase';
 
 export default function ChatPage() {
   const navigate = useNavigate();
+  const [chats, setChats] = useState([]);
+  const [selectedChat, setSelectedChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!auth.currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    const fetchChats = async () => {
+      try {
+        const chatsData = await getChatsByUser(auth.currentUser.uid);
+        setChats(chatsData);
+      } catch (error) {
+        console.error('Error fetching chats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchChats();
+  }, [navigate]);
+
+  useEffect(() => {
+    if (selectedChat) {
+      const fetchMessages = async () => {
+        const messagesData = await getMessages(selectedChat.id);
+        setMessages(messagesData);
+      };
+      fetchMessages();
+    }
+  }, [selectedChat]);
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedChat) return;
+
+    try {
+      await sendMessage(selectedChat.id, auth.currentUser.uid, newMessage.trim());
+      setNewMessage('');
+      // Refresh messages
+      const messagesData = await getMessages(selectedChat.id);
+      setMessages(messagesData);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
+
+  if (loading) {
+    return <div className="p-4">Loading chats...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -58,28 +87,72 @@ export default function ChatPage() {
           {chats.map((chat) => (
             <div
               key={chat.id}
-              className="flex items-center bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => setSelectedChat(chat)}
+              className={`flex items-center bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer ${
+                selectedChat?.id === chat.id ? 'ring-2 ring-emerald-500' : ''
+              }`}
             >
               <img
-                src={chat.avatar}
-                alt={chat.name}
+                src={chat.productImage || "https://via.placeholder.com/100"}
+                alt="Product"
                 className="w-12 h-12 rounded-full object-cover"
               />
               <div className="ml-4 flex-1">
                 <div className="flex justify-between items-start">
-                  <h3 className="font-medium text-gray-900">{chat.name}</h3>
-                  <span className="text-sm text-gray-500">{chat.time}</span>
+                  <h3 className="font-medium text-gray-900">{chat.productTitle}</h3>
+                  <span className="text-sm text-gray-500">
+                    {new Date(chat.lastMessageTime?.toDate()).toLocaleDateString()}
+                  </span>
                 </div>
                 <p className="text-sm text-gray-600 mt-1">{chat.lastMessage}</p>
               </div>
-              {chat.unread > 0 && (
-                <span className="ml-2 bg-emerald-500 text-white text-xs font-medium px-2 py-1 rounded-full">
-                  {chat.unread}
-                </span>
-              )}
             </div>
           ))}
         </div>
+
+        {selectedChat && (
+          <div className="fixed bottom-20 left-0 right-0 bg-white border-t">
+            <div className="max-w-2xl mx-auto p-4">
+              <div className="h-48 overflow-y-auto mb-4">
+                {messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`mb-2 ${
+                      message.senderId === auth.currentUser.uid
+                        ? 'text-right'
+                        : 'text-left'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block px-4 py-2 rounded-lg ${
+                        message.senderId === auth.currentUser.uid
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-gray-200 text-gray-800'
+                      }`}
+                    >
+                      {message.content}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <form onSubmit={handleSendMessage} className="flex gap-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <button
+                  type="submit"
+                  className="bg-emerald-600 text-white p-2 rounded-lg hover:bg-emerald-700"
+                >
+                  <Send className="h-5 w-5" />
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,64 +1,112 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ProductCard from './ProductCard';
+import { getProducts } from '../lib/firebase';
+import { Product } from '../types'; // Assuming you have a Product type defined
 
-const products = [
-  {
-    id: 1,
-    title: "iPhone 13 Pro Max - 256GB Space Gray",
-    price: "$899",
-    image: "https://images.unsplash.com/photo-1632661674596-df8be070a5c5?auto=format&fit=crop&q=80&w=400",
-    location: "New York",
-    date: "Today"
-  },
-  {
-    id: 2,
-    title: "Modern 3-Seater Sofa - Gray",
-    price: "$599",
-    image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=400",
-    location: "Los Angeles",
-    date: "Yesterday"
-  },
-  {
-    id: 3,
-    title: "2019 Tesla Model 3 - Long Range",
-    price: "$35,900",
-    image: "https://images.unsplash.com/photo-1560958089-b8a1929cea89?auto=format&fit=crop&q=80&w=400",
-    location: "Miami",
-    date: "2 days ago"
-  },
-  {
-    id: 4,
-    title: "MacBook Pro 16\" M1 Max",
-    price: "$2,499",
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=400",
-    location: "Chicago",
-    date: "3 days ago"
-  },
-  {
-    id: 5,
-    title: "Luxury Apartment - 2 Bed, 2 Bath",
-    price: "$2,800/mo",
-    image: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&q=80&w=400",
-    location: "San Francisco",
-    date: "1 week ago"
-  },
-  {
-    id: 6,
-    title: "Professional DSLR Camera Kit",
-    price: "$1,299",
-    image: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=400",
-    location: "Boston",
-    date: "1 week ago"
+interface ProductGridProps {
+  searchQuery?: string;
+  category?: string;
+  subcategory?: string;
+}
+
+export default function ProductGrid({ searchQuery = '', category = '', subcategory = '' }: ProductGridProps) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 12; // Increased from 8 to 12 for better grid layout
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Reset when search query or category changes
+    setProducts([]);
+    setPage(1);
+    setHasMore(true);
+    fetchProducts(1, true);
+  }, [searchQuery, category, subcategory]);
+
+  const fetchProducts = async (pageNum: number, isNewSearch: boolean = false) => {
+    try {
+      setLoading(true);
+      const productsData = await getProducts({
+        searchQuery,
+        category,
+        subcategory,
+        page: pageNum,
+        limit: PRODUCTS_PER_PAGE
+      });
+      
+      if (productsData.length < PRODUCTS_PER_PAGE) {
+        setHasMore(false);
+      }
+
+      setProducts(prev => isNewSearch ? productsData : [...prev, ...productsData]);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchProducts(nextPage);
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8 text-center">
+        <div className="animate-pulse grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="bg-gray-200 rounded-lg h-64"></div>
+          ))}
+        </div>
+      </div>
+    );
   }
-];
 
-export default function ProductGrid() {
+  if (products.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-8 text-center">
+        <p className="text-gray-600 text-lg">
+          No products found{searchQuery ? ` for "${searchQuery}"` : ''}.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {products.map((product) => (
-          <ProductCard key={product.id} {...product} />
+          <div 
+            key={product.id} 
+            onClick={() => navigate(`/product/${product.id}`)}
+            className="transform transition duration-200 hover:scale-105"
+          >
+            <ProductCard
+              title={product.title || product.name || ''}
+              price={product.price}
+              images={product.images}
+              location={product.location}
+              createdAt={product.createdAt}
+            />
+          </div>
         ))}
       </div>
+      
+      {hasMore && !loading && (
+        <div className="mt-8 text-center">
+          <button
+            onClick={handleLoadMore}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg transition duration-200 transform hover:scale-105"
+          >
+            Load More
+          </button>
+        </div>
+      )}
     </div>
   );
 }
